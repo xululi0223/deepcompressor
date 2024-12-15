@@ -9,7 +9,9 @@ __all__ = ["infer_dtype_bits", "infer_dtype_name", "eval_dtype"]
 
 
 def infer_dtype_bits(dtype: torch.dtype | QuantDataType) -> int:
-    """Get the number of bits of a torch.dtype or QuantDataType.
+    """
+    用于获取给定数据类型（torch.dtype 或 QuantDataType）的位数。
+    Get the number of bits of a torch.dtype or QuantDataType.
 
     Args:
         dtype (`torch.dtype` or `QuantDataType`):
@@ -19,8 +21,10 @@ def infer_dtype_bits(dtype: torch.dtype | QuantDataType) -> int:
         `int`:
             The number of bits.
     """
+    # 处理QuantDataType类型
     if isinstance(dtype, QuantDataType):
         return dtype.total_bits
+    # 处理torch.dtype类型
     else:
         if dtype == torch.float32:
             return 32
@@ -41,7 +45,9 @@ def infer_dtype_bits(dtype: torch.dtype | QuantDataType) -> int:
 
 
 def infer_dtype_name(dtype: torch.dtype | QuantDataType) -> str:
-    """Get the string representation of a torch.dtype or QuantDataType.
+    """
+    用于获取给定数据类型（torch.dtype 或 QuantDataType）的字符串表示形式。
+    Get the string representation of a torch.dtype or QuantDataType.
 
     Args:
         dtype (`torch.dtype` | `QuantDataType`):
@@ -51,8 +57,10 @@ def infer_dtype_name(dtype: torch.dtype | QuantDataType) -> str:
         `str`:
             The string representation.
     """
+    # 处理QuantDataType类型
     if isinstance(dtype, QuantDataType):
         return str(dtype)
+    # 处理torch.dtype类型
     elif isinstance(dtype, torch.dtype):
         if dtype == torch.float16:
             return "fp16"
@@ -71,19 +79,32 @@ def infer_dtype_name(dtype: torch.dtype | QuantDataType) -> str:
 def eval_dtype(  # noqa: C901
     s: str | torch.dtype | QuantDataType | None, with_quant_dtype: bool = True, with_none: bool = True
 ) -> torch.dtype | QuantDataType | None:
+    """
+    用于评估和解析输入的字符串、torch.dtype 或 QuantDataType，并返回对应的数据类型对象。
+
+    Args:
+        s: 字符串、torch.dtype 或 QuantDataType。
+        with_quant_dtype: 是否包含量化数据类型。
+        with_none: 是否包含 None。
+    """
+    # 处理torch.dtype类型，直接返回
     if isinstance(s, torch.dtype):
         return s
+    # 处理QuantDataType类型，直接返回
     if isinstance(s, QuantDataType):
         if with_quant_dtype:
             return s
         else:
             raise ValueError(f"Unknown dtype {s}")
+    # 处理None类型
     if s is None:
         if with_none:
             return None
         else:
             raise ValueError(f"Unknown dtype {s}")
+    # 处理字符串类型
     assert isinstance(s, str), f"Unknown dtype {s}"
+    # 将字符串转换为小写
     s = s.lower()
     if s in ("torch.float64", "float64", "fp64", "f64", "double"):
         return torch.float64
