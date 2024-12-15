@@ -14,102 +14,206 @@ __all__ = ["random_hadamard_matrix", "get_hadamard_matrices", "hardmard_transfor
 
 
 def _get_hadamard_K(n: int, transpose: bool = False, force: bool = False) -> tuple[torch.Tensor | None, int]:
-    """Get the Hadamard matrix and its dimension for a given input size."""
+    """
+    用于根据输入大小 n 获取对应的 Hadamard 矩阵及其维度。
+    它主要用于支持特定配置下的 Hadamard 变换，通过预定义的 Hadamard 矩阵来优化计算效率。
+    如果输入大小不符合预设的条件且 force 参数为 True，则函数会生成一个标准的 Hadamard 矩阵。
+    Get the Hadamard matrix and its dimension for a given input size.
+    
+    Args:
+        n: 输入的大小，通常是矩阵的维度。
+        transpose: 是否对 Hadamard 矩阵进行转置。
+        force: 强制生成Hardmard矩阵，即使输入大小不符合预设条件。
+    """
+    # 初始化变量。hadamard_K用于存储最终的Hadamard矩阵。K用于存储对应的维度。
     hadamard_K, K = None, None
+    # 如果n能被172整除
     if n % 172 == 0:  # llama-2-7b up
+        # 确保n // 172 是2的幂次方
         assert is_pow2(n // 172)
+        # 设置维度K为172
         K = 172
+        # 调用_get_hadamard_172()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_172().T if transpose else _get_hadamard_172()
+    # 如果n能被156整除
     elif n % 156 == 0:  # llama-1-30b 3x hidden
+        # 确保n // 156 是2的幂次方
         assert is_pow2(n // 156)
+        # 设置维度K为156
         K = 156
+        # 调用_get_hadamard_156()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_156().T if transpose else _get_hadamard_156()
+    # 如果n能被140整除
     elif n % 140 == 0:  # llama-1-30b intermediate
+        # 确保n // 140 是2的幂次方 
         assert is_pow2(n // 140)
+        # 设置维度K为140
         K = 140
+        # 调用_get_hadamard_140()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_140().T if transpose else _get_hadamard_140()
+    # 如果n能被108整除
     elif n % 108 == 0:  # llama-1-13b intermediate
+        # 确保n // 108 是2的幂次方
         assert is_pow2(n // 108)
+        # 设置维度K为108
         K = 108
+        # 调用_get_hadamard_108()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_108().T if transpose else _get_hadamard_108()
+    # 如果n能被60整除
     elif n % 60 == 0:  # llama-1-13b 3x hidden
+        # 确保n // 60 是2的幂次方
         assert is_pow2(n // 60)
+        # 设置维度K为60
         K = 60
+        # 调用_get_hadamard_60()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_60().T if transpose else _get_hadamard_60()
+    # 如果n能被52整除
     elif n % 52 == 0:  # llama-1-13b 1x hidden
+        # 确保n // 52 是2的幂次方
         assert is_pow2(n // 52)
+        # 设置维度K为52
         K = 52
+        # 调用_get_hadamard_52()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_52().T if transpose else _get_hadamard_52()
+    # 如果n能被36整除
     elif n % 36 == 0:
+        # 确保n // 36 是2的幂次方
         assert is_pow2(n // 36)
+        # 设置维度K为36
         K = 36
+        # 调用_get_hadamard_36()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_36().T if transpose else _get_hadamard_36()
+    # 如果n能被28整除
     elif n % 28 == 0:
+        # 确保n // 28 是2的幂次方
         assert is_pow2(n // 28)
+        # 设置维度K为28
         K = 28
+        # 调用_get_hadamard_28()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_28().T if transpose else _get_hadamard_28()
+    # 如果n能被20整除
     elif n % 40 == 0:
+        # 确保n // 40 是2的幂次方
         assert is_pow2(n // 40)
+        # 设置维度K为40
         K = 40
+        # 调用_get_hadamard_40()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_40().T if transpose else _get_hadamard_40()
+    # 如果n能被20整除
     elif n % 20 == 0:
+        # 确保n // 20 是2的幂次方
         assert is_pow2(n // 20)
+        # 设置维度K为20
         K = 20
+        # 调用_get_hadamard_20()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_20().T if transpose else _get_hadamard_20()
+    # 如果n能被12整除
     elif n % 12 == 0:
+        # 确保n // 12 是2的幂次方
         assert is_pow2(n // 12)
+        # 设置维度K为12
         K = 12
+        # 调用_get_hadamard_12()函数获取对应的Hadamard矩阵
         hadamard_K = _get_hadamard_12().T if transpose else _get_hadamard_12()
+    # 如果n无法被前述特定值整除时
     else:
+        # 确保n是2的幂次方
         assert is_pow2(n)
+        # 如果force为True，生成标准的Hadamard矩阵
         if force:
             hadamard_K = torch.Tensor(scipy.linalg.hadamard(n))
+        # 设置K为1，表示没有额外的分块处理
         K = 1
 
     return hadamard_K, K
 
 
 def _matmul_hadU(X: torch.Tensor, hadamard_K: torch.Tensor | None, K: int) -> torch.Tensor:
-    """Apply Hadamard matrix to the input tensor."""
+    """
+    用于将 Hadamard 矩阵应用于输入张量 X。
+    该函数通过分块处理和位运算优化了矩阵乘法的计算过程，以提高效率和节省内存。
+    最终，函数返回经过 Hadamard 变换后的张量。
+    Apply Hadamard matrix to the input tensor.
+    
+    Args:
+        X: 输入的张量。
+        hadamard_K: 预定义的Hadamard矩阵。
+        K: 矩阵的维度，用于分块处理。
+    """
+    # 获取张量X最后一维的大小n，通常代表特征维度或序列长度
     n = X.shape[-1]
+    # 创建X的副本，避免修改原始张量。同时重塑为三维张量，形状为(batch_size, n, 1)
     input = X.clone().view(-1, n, 1)
+    # 创建input的副本，用于后续计算
     output = input.clone()
+    # 当input的第二维度大于K时，进入循环
     while input.shape[1] > K:
+        # 将input重塑为(batch_size, shape[1]//2, 2, 1)，即将第二维度分为两部分
         input = input.view(input.shape[0], input.shape[1] // 2, 2, input.shape[2])
+        # 将output重塑为与input相同的形状
         output = output.view(input.shape)
+        # 计算前一块和后一块的和
         output[:, :, 0, :] = input[:, :, 0, :] + input[:, :, 1, :]
+        # 计算前一块和后一块的差
         output[:, :, 1, :] = input[:, :, 0, :] - input[:, :, 1, :]
+        # 将output重塑会(batch_size, n, 1)
         output = output.view(input.shape[0], input.shape[1], -1)
+        # 交换input和output，为下一轮迭代做准备
         (input, output) = (output, input)
     del output
 
+    # 如果K大于1，则需要进一步应用Hadamard矩阵
     if K > 1:
         # Do not explicitly repeat - OOM
         # input = torch.bmm(
         #     hadK.repeat(len(input), 1, 1).to(input.device).to(input.dtype), input)
         # Use bcast instead
         assert hadamard_K is not None
+        # 矩阵乘法，将Hadamard矩阵应用于input
         input = hadamard_K.view(1, K, K).to(input) @ input
 
+    # 重塑回原始输入张量形状，并进行标准化
     return input.view(X.shape) / torch.tensor(n).sqrt()
 
 
 def random_hadamard_matrix(size: int) -> torch.Tensor:
-    """Generate a random Hadamard matrix of size `size`."""
+    """
+    用于生成一个随机的 Hadamard 矩阵，大小为给定的 size。
+    该函数通过生成随机的对角矩阵并应用 Hadamard 变换来构建随机 Hadamard 矩阵，常用于随机化及数据增强等应用场景。
+    Generate a random Hadamard matrix of size `size`.
+    
+    Args:
+        size: 指定生成的Hadamard矩阵的大小
+    """
     # See https://cornell-relaxml.github.io/quip-sharp/ , Section "Randomized Hadamard Transformation"
+    # 生成随机向量Q，大小为(size,)，元素取值为-1或1
     Q = torch.randint(low=0, high=2, size=(size,)).to(torch.float64)
+    # 转换为{-1, +1}
     Q = Q * 2 - 1
+    # 生成对角矩阵
     Q = torch.diag(Q)
+    # 获取Hadamard矩阵
     hadamard_K, K = _get_hadamard_K(Q.shape[-1])
+    # 应用Hadamard变换，得到随机Hadamard矩阵
     return _matmul_hadU(Q, hadamard_K=hadamard_K, K=K)
 
 
 def get_hadamard_matrices(n: int) -> tuple[torch.Tensor, torch.Tensor | None, int]:
-    """Get the Hadamard matrix and its dimension for a given input size."""
+    """
+    用于获取与输入大小 n 相关的两个 Hadamard 矩阵 H1 和 H2，以及一个维度参数 K2。
+    该函数通过调用 _get_hadamard_K 函数，确保获取到适合 n 的 Hadamard 矩阵，并处理可能的分块情况。
+    Get the Hadamard matrix and its dimension for a given input size.
+    
+    Args:
+        n: 输入的大小，通常是矩阵的维度。
+    """
+    # 获取第二个Hadamard矩阵
     H2, K2 = _get_hadamard_K(n, force=True)
+    # 如果K2> 1，则获取第一个Hadamard矩阵
     if K2 > 1:
         H1, K1 = _get_hadamard_K(n // K2, force=True)
         assert K1 == 1
+    # 否则，设置H1，K1为H2，K2
     else:
         H1, K1 = H2, K2
     assert H1 is not None
@@ -119,15 +223,34 @@ def get_hadamard_matrices(n: int) -> tuple[torch.Tensor, torch.Tensor | None, in
 def hardmard_transform(
     X: torch.Tensor, H1: torch.Tensor, H2: torch.Tensor | None, K: int, scaled: bool = False
 ) -> torch.Tensor:
-    """Apply Hadamard matrix to the input tensor."""
+    """
+    用于将预定义的 Hadamard 矩阵 H1 和 H2 应用于输入张量 X。
+    函数支持可选的缩放操作，并根据维度参数 K 确定是否应用第二个 Hadamard 矩阵。
+    最终返回经过 Hadamard 变换后的张量。
+    Apply Hadamard matrix to the input tensor.
+    
+    Args:
+        X: 输入张量。
+        H1: 第一个Hadamard矩阵。
+        H2: 第二个Hadamard矩阵。
+        K: 唯独参数，决定是否应用第二个Hadamard矩阵。
+        scaled: 指示是否进行缩放操作。
+    """
+    # 获取输入张量的形状
     shape = X.shape
+    # 获取X最后一维的大小n，通常代表特征维度或序列长度
     n = shape[-1]
+    # 将X重塑为三维张量，形状为(batch_size, K, n // K)，将最后一维分割为K个块
     XH = X.view(-1, K, n // K)
+    # 线性变换，将Hadamard矩阵H1应用于XH
     XH = F.linear(XH, H1)
+    # 如果不进行缩放，则对XH进行标准化
     if not scaled:
         XH = XH.mul_(1.0 / torch.tensor(n).sqrt().to(XH.device, XH.dtype))
+    # 第二个Hadamard矩阵应用
     if K > 1:
         XH = H2 @ XH
+    # 将XH重塑回输入张量的原始形状
     return XH.view(shape)
 
 
@@ -135,6 +258,10 @@ def hardmard_transform(
 # hadamard matrices for had12, had36.pal2, had52,will, had60.pal, had108.pal, had140.pal, had156.will, had172.will:
 # http://www.neilsloane.com/hadamard/index.html
 def _get_hadamard_12() -> torch.Tensor:
+    """
+    用于返回一个预定义的12x12Hadamard矩阵。
+    该矩阵由硬编码的+1和-1组成，适用于需要特定大小Hadamard矩阵的应用场景。
+    """
     return torch.FloatTensor(
         [
             [+1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],

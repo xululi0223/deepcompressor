@@ -46,7 +46,10 @@ Logger = logging.Logger
 
 
 def getLogger(name: str | None = None) -> logging.Logger:
-    """Get a logger with the given name.
+    """
+    获取一个指定名称的日志记录器（Logger）。
+    如果未提供名称，则返回根日志记录器。
+    Get a logger with the given name.
 
     Args:
         name (`str` or `None`, *optional*, defaults to `None`): The name of the logger.
@@ -58,7 +61,10 @@ def getLogger(name: str | None = None) -> logging.Logger:
 
 
 def log(level: int, msg: str, logger: logging.Logger | None = None) -> None:
-    """Log a message with the given level.
+    """
+    使用指定的日志级别记录一条消息。
+    如果消息包含多行，会逐行记录。
+    Log a message with the given level.
 
     Args:
         level (`int`): The logging level.
@@ -66,11 +72,15 @@ def log(level: int, msg: str, logger: logging.Logger | None = None) -> None:
         logger (`logging.Logger` or `None`, *optional*, defaults to `None`):
             The logger to use. If `None`, the root logger is used.
     """
+    # 如果未提供日志记录器，则使用根日志记录器
     if logger is None:
         logger = logging.getLogger()
+    # 如果日志级别未启用，则直接返回
     if not logger.isEnabledFor(level):
         return
+    # 将消息转换为字符串
     msg = str(msg)
+    # 如果消息包含换行符，则逐行记录
     if "\n" in msg:
         for line in msg.split("\n"):
             log(level, line, logger)
@@ -79,7 +89,9 @@ def log(level: int, msg: str, logger: logging.Logger | None = None) -> None:
 
 
 def info(msg: str, logger: logging.Logger | None = None):
-    """Log a message with the INFO level.
+    """
+    使用 INFO 级别记录一条消息。
+    Log a message with the INFO level.
 
     Args:
         msg (`str`): The message to log.
@@ -90,7 +102,9 @@ def info(msg: str, logger: logging.Logger | None = None):
 
 
 def debug(msg: str, logger: logging.Logger | None = None):
-    """Log a message with the DEBUG level.
+    """
+    使用 DEBUG 级别记录一条消息。
+    Log a message with the DEBUG level.
 
     Args:
         msg (`str`): The message to log.
@@ -101,7 +115,9 @@ def debug(msg: str, logger: logging.Logger | None = None):
 
 
 def warning(msg: str, logger: logging.Logger | None = None):
-    """Log a message with the WARNING level.
+    """
+    使用 WARNING 级别记录一条消息。
+    Log a message with the WARNING level.
 
     Args:
         msg (`str`): The message to log.
@@ -112,7 +128,9 @@ def warning(msg: str, logger: logging.Logger | None = None):
 
 
 def error(msg: str, logger: logging.Logger | None = None):
-    """Log a message with the ERROR level.
+    """
+    使用 ERROR 级别记录一条消息。
+    Log a message with the ERROR level.
 
     Args:
         msg (`str`): The message to log.
@@ -123,7 +141,9 @@ def error(msg: str, logger: logging.Logger | None = None):
 
 
 def critical(msg: str, logger: logging.Logger | None = None):
-    """Log a message with the CRITICAL level.
+    """
+    使用 CRITICAL 级别记录一条消息。
+    Log a message with the CRITICAL level.
 
     Args:
         msg (`str`): The message to log.
@@ -134,8 +154,12 @@ def critical(msg: str, logger: logging.Logger | None = None):
 
 
 class Formatter(logging.Formatter):
-    """A custom formatter for logging."""
+    """
+    自定义日志格式化器，支持缩进功能。
+    A custom formatter for logging.
+    """
 
+    # 缩进量，用于控制消息前的空格数量
     indent = 0
 
     def __init__(self, fmt: str | None = None, datefmt: str | None = None, style: tp.Literal["%", "{", "$"] = "%"):
@@ -149,7 +173,9 @@ class Formatter(logging.Formatter):
         super().__init__(fmt, datefmt, style)
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format the record.
+        """
+        格式化日志记录。
+        Format the record.
 
         Args:
             record (`logging.LogRecord`): The log record.
@@ -157,10 +183,14 @@ class Formatter(logging.Formatter):
         Returns:
             str: The formatted record.
         """
+        # 如果缩进量大于 0，则在消息前添加相应数量的空格
         record.message = " " * self.indent + record.getMessage()
+        # 格式化时间（如果启用）
         if self.usesTime():
             record.asctime = self.formatTime(record, self.datefmt)
+        # 格式化消息
         s = self.formatMessage(record)
+        # 如果启用异常信息，则格式化异常信息
         if record.exc_info:
             if not record.exc_text:
                 record.exc_text = self.formatException(record.exc_info)
@@ -168,6 +198,7 @@ class Formatter(logging.Formatter):
             if s[-1:] != "\n":
                 s = s + "\n"
             s = s + record.exc_text
+        # 如果启用堆栈信息，则格式化堆栈信息
         if record.stack_info:
             if s[-1:] != "\n":
                 s = s + "\n"
@@ -176,26 +207,43 @@ class Formatter(logging.Formatter):
 
     @staticmethod
     def indent_inc(delta: int = 2):
-        """Increase the indent."""
+        """
+        增加缩进量。
+        Increase the indent.
+        """
         Formatter.indent += delta
 
     @staticmethod
     def indent_dec(delta: int = 2):
-        """Decrease the indent."""
+        """
+        减少缩进量。
+        Decrease the indent.
+        """
         Formatter.indent -= delta
 
     @staticmethod
     def indent_reset(indent: int = 0):
-        """Reset the indent."""
+        """
+        重置缩进量。
+        Reset the indent.
+        """
         Formatter.indent = indent
 
 
 def basicConfig(**kwargs) -> None:
-    """Configure the root logger."""
+    """
+    配置根日志记录器，设置格式化器。
+    Configure the root logger.
+    """
+    # 获取格式化器参数
     fmt = kwargs.pop("format", None)
+    # 获取日期格式化参数
     datefmt = kwargs.pop("datefmt", None)
+    # 获取格式风格参数
     style = kwargs.pop("style", "%")
+    # 配置根日志记录器
     logging.basicConfig(**kwargs)
+    # 遍历根日志记录器的所有处理器，将自定义的格式化器应用到每个处理器
     for h in logging.root.handlers[:]:
         h.setFormatter(Formatter(fmt, datefmt, style))
 
@@ -207,7 +255,9 @@ def setup(
     datefmt: str = "%y-%m-%d %H:%M:%S",
     **kwargs,
 ) -> None:
-    """Setup the default logging configuration.
+    """
+    设置默认的日志配置，支持控制台和文件输出。
+    Setup the default logging configuration.
 
     Args:
         path (`str` | `None`, *optional*, defaults to `None`):
@@ -218,12 +268,17 @@ def setup(
         datefmt (`str`, *optional*, defaults to `"%y-%m-%d %H:%M:%S"`): The date format string.
         **kwargs: Additional keyword arguments.
     """
+    # 获取处理器列表
     handlers = kwargs.pop("handlers", None)
+    # 获取是否强制覆盖的标志
     force = kwargs.pop("force", True)
+    # 如果未提供handlers，则默认使用StreamHandler输出到控制台
     if handlers is None:
         handlers = [logging.StreamHandler(sys.stdout)]
+        # 如果提供了path，则添加FileHandler输出到文件
         if path is not None:
             handlers.append(logging.FileHandler(path, mode="w"))
+    # 配置根日志记录器
     basicConfig(
         level=level,
         format=format,
