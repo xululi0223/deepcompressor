@@ -24,47 +24,83 @@ __all__ = ["SearchBasedCalibrator"]
 
 
 def _reshape_w_for_wgts(w: torch.Tensor, w_view_shape: torch.Size) -> torch.Tensor:
+    """
+    用于重新调整权重张量w的形状，以适应权重量化计算的需求。
+    具体来说，它通过视图变换和维度置换，对权重进行重塑，以便后续的计算和处理。
+    
+    Args:
+        w: 权重张量。
+        w_view_shape: 权重张量的视图形状。
+    """
     # (#g0, gs0, #g1, gs1, ...)
-    w = w.view(w_view_shape)
+    w = w.view(w_view_shape)                                                            # 调整视图形状
     # (#g0, gs0, #g1, gs1, ...) -> (#g0, ..., gs1, ..., gs0)
-    w = w.permute(*range(0, len(w_view_shape), 2), *range(3, len(w_view_shape), 2), 1)
+    w = w.permute(*range(0, len(w_view_shape), 2), *range(3, len(w_view_shape), 2), 1)  # 选择所有偶数索引的维度，选择从索引3开始的奇数索引的维度
     # (#g0, ..., gs0, gs1, ...) -> (#g0, ..., gs1 * gs2 * ..., gs0)
-    return w.reshape(*w_view_shape[::2], -1, w_view_shape[1])
+    return w.reshape(*w_view_shape[::2], -1, w_view_shape[1])                           # 保留偶数索引的维度
 
 
 def _reshape_x_for_wgts(x: torch.Tensor, w_view_shape: torch.Size) -> torch.Tensor:
+    """
+    用于重新调整输入张量x的形状，以匹配权重量化计算中的需要。
+    主要目的是将输入张量x展开并重新排列，以便与权重进行高效的矩阵乘法运算。
+    
+    Args:
+        x: 输入张量。
+        w_view_shape: 权重张量的视图形状。
+    """
     # x is unfolded already
-    num_samples = x.shape[0]
+    num_samples = x.shape[0]                                                            # 获取样本数量
     # (1, n, #g1, gs1, ...)
-    x = x.view(1, num_samples, *w_view_shape[2:])
+    x = x.view(1, num_samples, *w_view_shape[2:])                                       # 调整视图形状
     # (1, n, #g1, gs1, ...) -> (1, #g1, ..., n, gs1, ...)
-    x = x.permute(*range(0, len(w_view_shape), 2), *range(1, len(w_view_shape), 2))
-    return x.reshape(1, *w_view_shape[2::2], num_samples, -1)
+    x = x.permute(*range(0, len(w_view_shape), 2), *range(1, len(w_view_shape), 2))     # 选择所有偶数索引的维度，选择所有奇数索引的维度
+    return x.reshape(1, *w_view_shape[2::2], num_samples, -1)                           # 将张量x重新调整为新的形状
 
 
 def _reshape_x_for_ipts(x: torch.Tensor, x_view_shape: torch.Size) -> torch.Tensor:
+    """
+    用于重新调整原始输入张量x的形状，以适应输入量化处理的需要。
+    主要目的是将原始输入张量进行重塑，使其与权重量化后的形状相匹配，从而进行后续的量化计算。
+    
+    Args:
+        x: 原始输入张量。
+        x_view_shape: 输入张量的视图形状。
+    """
     # x is original tensor without unfolding
     # (#g0, gs0, #g1, gs1, ...)
-    x = x.view(x_view_shape)
+    x = x.view(x_view_shape)                                                            # 调整视图形状
     # (#g0, gs0, #g1, gs1, ...) -> (#g0, #g1, ..., gs0, gs2, ..., gs1)
-    x = x.permute(*range(0, len(x_view_shape), 2), 1, *range(5, len(x_view_shape), 2), 3)
+    x = x.permute(*range(0, len(x_view_shape), 2), 1, *range(5, len(x_view_shape), 2), 3)   # 选择所有偶数索引的维度，从索引5开始，选择所有奇数索引的维度
     # (#g0, #g1, ..., gs0, gs2, ..., gs1) -> (#g0, #g1, ..., gs0 * gs2 * ..., gs1)
-    return x.reshape(*x_view_shape[::2], -1, x_view_shape[3])
+    return x.reshape(*x_view_shape[::2], -1, x_view_shape[3])                           # 保留偶数索引的维度
 
 
 def _reshape_w_for_ipts(w: torch.Tensor, x_view_shape: torch.Size) -> torch.Tensor:
+    """
+    用于重新调整权重张量w的形状，以适应输入量化处理的需求。
+    主要目的是将权重张量进行转置和重塑，使其与输入张量的形状匹配，从而进行高效的矩阵乘法运算。
+    
+    Args:
+        w: 权重张量。
+        x_view_shape: 输入张量的视图形状。
+    """
     return w.transpose(0, 1).reshape(1, x_view_shape[2], *([1] * (w.ndim - 2)), x_view_shape[3], -1)
 
 
-_CANDIDATE = tp.TypeVar("_CANDIDATE")
-_CONFIG = tp.TypeVar("_CONFIG", bound=SearchBasedCalibConfig)
+_CANDIDATE = tp.TypeVar("_CANDIDATE")                               # 候选者类型
+_CONFIG = tp.TypeVar("_CONFIG", bound=SearchBasedCalibConfig)       # 配置类型
 
 
 class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
-    """The base class for search-based calibration."""
+    """
+    一个基于搜索的量化校准器的抽象基类，用于在深度学习模型中进行权重量化和输入量化的校准。
+    该类通过搜索算法优化量化参数，以最小化量化误差，从而提升模型在量化后的性能。
+    The base class for search-based calibration.
+    """
 
-    config: _CONFIG
-    candidate: _CANDIDATE
+    config: _CONFIG                 # 存储校准器的配置
+    candidate: _CANDIDATE           # 当前的候选量化参数
 
     def __init__(
         self,
@@ -91,6 +127,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             develop_dtype (`torch.dtype`):
                 The development data type.
         """
+        # 设定基本属性
         self.tensor_type = tensor_type
         self.config = config
         self.objective = self.config.objective
@@ -100,9 +137,11 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         self.w_quantizer = w_quantizer
         self.x_quantizer = x_quantizer
         self.y_quantizer = y_quantizer
+        # 确定是否需要量化
         self.needs_w_quant = self.w_quantizer is not None and self.w_quantizer.is_enabled()
         self.needs_x_quant = self.x_quantizer is not None and self.x_quantizer.is_enabled()
         self.needs_y_quant = self.y_quantizer is not None and self.y_quantizer.is_enabled()
+        # 根据allows_*属性决定量化需求
         self.needs_x_quant_for_wgts = self.allows_x_quant_for_wgts and self.needs_x_quant
         self.needs_w_quant_for_wgts = self.allows_w_quant_for_wgts and self.needs_w_quant
         self.needs_x_quant_for_ipts = self.allows_x_quant_for_ipts and self.needs_x_quant
@@ -110,6 +149,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         self.needs_x_quant_for_opts = self.allows_x_quant_for_opts and self.needs_x_quant
         self.needs_y_quant_for_opts = self.allows_y_quant_for_opts and self.needs_y_quant
         self.needs_w_quant_for_opts = self.allows_w_quant_for_opts and self.needs_w_quant
+        # 根据 tensor_type 设定主量化器
         if self.tensor_type == TensorType.Weights:
             self.quantizer = self.w_quantizer
             self.needs_quant = self.needs_w_quant
@@ -121,65 +161,103 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             self.needs_quant = self.needs_y_quant
         else:
             raise ValueError(f"unknown tensor type: {self.tensor_type}")
+        # 其他初始化
         self.num_iters = getattr(self.config, "num_iters", 1)
         self.logger = tools.logging.getLogger(f"{__name__}.{self.__class__.__name__.replace('Agent', '')}")
 
     @property
     @abstractmethod
     def population_size(self) -> int:
-        """Get the population size."""
+        """
+        获取种群大小。
+        Get the population size.
+        """
         ...
 
     @property
     def allows_x_quant_for_wgts(self) -> bool:
-        """Whether the calibrator allows input quantization when tensor_type is Weights."""
+        """
+        当张量类型为权重时，是否允许输入量化。
+        Whether the calibrator allows input quantization when tensor_type is Weights.
+        """
         return False
 
     @property
     def allows_w_quant_for_wgts(self) -> bool:
-        """Whether the calibrator allows weight quantization when tensor_type is Weights."""
+        """
+        当张量类型为权重时，是否允许权重量化。
+        Whether the calibrator allows weight quantization when tensor_type is Weights.
+        """
         return True
 
     @property
     def allows_x_quant_for_ipts(self) -> bool:
-        """Whether the calibrator allows input quantization when tensor_type is Inputs."""
+        """
+        当张量类型为输入时，是否允许输入量化。
+        Whether the calibrator allows input quantization when tensor_type is Inputs.
+        """
         return True
 
     @property
     def allows_w_quant_for_ipts(self) -> bool:
-        """Whether the calibrator allows weight quantization when tensor_type is Inputs."""
+        """
+        当张量类型为输入时，是否允许权重量化。
+        Whether the calibrator allows weight quantization when tensor_type is Inputs.
+        """
         return False
 
     @property
     def allows_x_quant_for_opts(self) -> bool:
-        """Whether the calibrator allows x quantization when tensor_type is Outputs."""
+        """
+        当张量类型为输出时，是否允许输入量化。
+        Whether the calibrator allows x quantization when tensor_type is Outputs.
+        """
         return True
 
     @property
     def allows_y_quant_for_opts(self) -> bool:
-        """Whether the calibrator allows y quantization when tensor_type is Outputs."""
+        """
+        当张量类型为输出时，是否允许输出量化。
+        Whether the calibrator allows y quantization when tensor_type is Outputs.
+        """
         return True
 
     @property
     def allows_w_quant_for_opts(self) -> bool:
-        """Whether the calibrator allows weight quantization when tensor_type is Outputs."""
+        """
+        当张量类型为输出时，是否允许权重量化。
+        Whether the calibrator allows weight quantization when tensor_type is Outputs.
+        """
         return False
 
     @property
     def needs_to_pre_reshape_x_for_wgts(self) -> bool:
-        """Whether the calibrator needs to pre-reshape the inputs for weight quantization calibration."""
+        """
+        是否需要预先重塑输入以进行权重量化校准
+        Whether the calibrator needs to pre-reshape the inputs for weight quantization calibration.
+        """
         return not self.needs_x_quant_for_wgts and self.config.pre_reshape
 
     @property
     def needs_to_pre_reshape_w_for_ipts(self) -> bool:
-        """Whether the calibrator needs to pre-reshape the weights for input quantization calibration."""
+        """
+        是否需要预先重塑权重以进行输入量化校准
+        Whether the calibrator needs to pre-reshape the weights for input quantization calibration.
+        """
         return not self.needs_w_quant_for_ipts and self.config.pre_reshape
 
     def _reset(self, **kwargs) -> None:
+        """
+        私有方法，用于重置校准器。
+        """
         pass
 
     def reset(self, **kwargs) -> None:
-        """Reset the calibrator."""
+        """
+        重置校准器。
+        Reset the calibrator.
+        """
+        # 重置当前迭代次数、候选者ID，并清空状态字典和钩子列表
         self.iter = 0
         self.candidate_id = 0
         self._reset(**kwargs)
@@ -187,20 +265,31 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         self._hooks: list[Hook | torch.utils.hooks.RemovableHandle] = []
 
     def is_done(self) -> bool:
-        """Check if the calibration is done."""
+        """
+        检查校准是否完成。
+        Check if the calibration is done.
+        """
         return self.iter >= self.num_iters
 
     def is_last_iter(self) -> bool:
-        """Check if the current iteration is the last one."""
+        """
+        检查当前迭代是否为最后一次。
+        Check if the current iteration is the last one.
+        """
         return self.iter == self.num_iters - 1
 
     def is_last_candidate_in_iter(self) -> bool:
-        """Check if the current candidate is the last one in the current iteration."""
+        """
+        检查当前候选者是否为当前迭代中的最后一个。
+        Check if the current candidate is the last one in the current iteration.
+        """
         return self.candidate_id == self.population_size - 1
 
     @abstractmethod
     def get_best(self) -> _CANDIDATE:
-        """Get the best candidate.
+        """
+        获取最佳候选者。
+        Get the best candidate.
 
         Returns:
             `_CANDIDATE`:
@@ -210,7 +299,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
 
     @abstractmethod
     def _ask(self) -> _CANDIDATE:
-        """Ask for the next candidate.
+        """
+        请求下一个候选者。
+        Ask for the next candidate.
 
         Returns:
             `_CANDIDATE`:
@@ -220,7 +311,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
 
     @abstractmethod
     def _tell(self, error: list[torch.Tensor]) -> None:
-        """Tell the error of the last candidate and update the best candidate.
+        """
+        告知上一个候选者的误差，并更新最佳候选者。
+        Tell the error of the last candidate and update the best candidate.
 
         Args:
             error (`list[torch.Tensor]`):
@@ -229,33 +322,48 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         ...
 
     def ask(self) -> _CANDIDATE:
-        """Ask for the next candidate.
+        """
+        请求下一个候选者。
+        Ask for the next candidate.
 
         Returns:
             `_CANDIDATE`:
                 The next candidate.
         """
-        self.candidate = self._ask()
+        self.candidate = self._ask()    # 获取下一个候选者
         return self.candidate
 
     def tell(self, error: list[torch.Tensor]) -> None:
-        """Tell the error of the last candidate and update the best candidate.
+        """
+        告知上一个候选者的误差，并更新最佳候选者。
+        Tell the error of the last candidate and update the best candidate.
 
         Args:
             error (`list[torch.Tensor]`):
                 The error of the last candidate.
         """
         self._tell(error)
-        self.candidate_id += 1
+        self.candidate_id += 1      # 更新候选者ID
+        # 更新迭代次数
         if self.candidate_id >= self.population_size:
             self.iter += 1
             self.candidate_id = 0
 
     def _parse_ipts(self, ipts: TensorsCache | None, set_device: bool = False) -> TensorsCache | None:
+        """
+        解析输入张量（ipts），根据校准目标进行重塑和分批处理。
+        
+        Args:
+            ipts: 输入张量。
+            set_device: 是否设置设备。
+        """
+        # 设备设置
         if set_device:
             self.opts_device = None
         elif ipts is None:
             return None
+        
+        # 根据校准目标设定批量大小和校准大小
         if self.objective == SearchBasedCalibObjective.ProductsError:
             batch_size = self.config.element_batch_size
             calib_size = self.config.element_size
@@ -266,6 +374,8 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             assert self.objective == SearchBasedCalibObjective.TensorError
             batch_size = -1
             calib_size = -1
+        
+        # 重新分区和重塑
         prev_size = len(ipts.front().data)
         parsed_ipts = TensorsCache(
             {
@@ -280,6 +390,8 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         )
         curr_size = len(parsed_ipts.front().data)
         assert all(len(ipt.data) == curr_size for ipt in parsed_ipts.values())
+
+        # 设备调整
         if set_device and prev_size != curr_size:
             self.opts_device = self.config.outputs_device
         return parsed_ipts
@@ -314,7 +426,11 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         TensorCache | None,  # orig_y_acts
         TensorCache | None,  # orig_eval_inputs
     ]:
+        """
+        验证和处理传入的参数，根据校准目标和量化类型进行相应调整。
+        """
         # region Check the types of the arguments
+        # 类型检查。确保所有输入参数的类型正确
         if x_wgts is not None:
             assert isinstance(x_wgts, (tuple, list)), "x_wgts should be a list"
             assert all(isinstance(w, nn.Parameter) for w in x_wgts), "wgts should be a list of nn.Parameter"
@@ -358,6 +474,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         if orig_eval_inputs is not None:
             assert isinstance(orig_eval_inputs, TensorsCache), "orig_eval_inputs should be a TensorsCache"
         # endregion
+        
+        # 根据校准目标调整对象
+        # 对于 TensorError、ProductsError 和 OutputsError 目标，分别进行不同的处理和重塑
         self.objective = self.config.objective
         self.granularity = self.config.granularity
         if self.tensor_type == TensorType.Outputs:
@@ -412,9 +531,13 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
                 self.granularity = SearchBasedCalibGranularity.Layer
         else:
             raise ValueError(f"unknown objective: {self.objective}")
+        
+        # 日志记录。记录当前的张量类型、校准目标和粒度
         self.logger.debug(
             f"+ tensor_type: {self.tensor_type}, objective: {self.objective}, granularity: {self.granularity}"
         )
+        
+        # 返回解析后的参数
         return (
             x_wgts,
             y_wgts,
@@ -477,6 +600,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
     def _process_yw_in_yx(self, w: torch.Tensor) -> torch.Tensor: ...
 
     def _recover_mod(self) -> None:
+        """
+        恢复原始权重数据，并移除所有挂钩。
+        """
         for p, w in self._state_dict:
             p.data = w
         self._state_dict.clear()
@@ -487,22 +613,34 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
     def _process_wgts_centric_mod(
         self, wgts: list[nn.Parameter], mods: list[nn.Module], update_state_dict: bool = True, **kwargs
     ) -> None:
+        """
+        根据是否需要权重量化和输入量化，对权重和模块进行处理。
+        """
+        # 权重量化处理：如果需要，保存原始权重并应用量化处理
         if self.needs_w_quant_for_wgts:
             for w in wgts:
                 if update_state_dict:
                     self._state_dict.append((w, w.data))
                 w.data = self._process_w_in_xw(w.data)
+
+        # 输入量化挂钩：如果需要，注册量化挂钩（hook）到模块
         if self.needs_x_quant_for_wgts:
             self._hooks.append(self.x_quantizer.as_hook(func=self._process_x_in_xw, is_output=False).register(mods))
 
     def _process_ipts_centric_mod(
         self, wgts: list[nn.Parameter], mods: list[nn.Module], update_state_dict: bool = True, **kwargs
     ) -> None:
+        """
+        根据是否需要权重量化和输入量化，对权重和模块进行处理，重点在于输入量化。
+        """
+        # 权重量化处理：如果需要，保存原始权重并应用量化处理
         if self.needs_w_quant_for_ipts:
             for w in wgts:
                 if update_state_dict:
                     self._state_dict.append((w, w.data))
                 w.data = self._process_w_in_xw(w.data)
+                
+        # 输入量化挂钩：如果需要，注册量化挂钩（hook）到模块
         if self.needs_x_quant_for_ipts:
             self._hooks.append(self.x_quantizer.as_hook(self._process_x_in_xw, is_output=False).register(mods))
 
@@ -515,6 +653,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         update_state_dict: bool = True,
         **kwargs,
     ) -> None:
+        """
+        处理与输出相关的权重量化和激活量化，注册相应的挂钩。
+        """
         if self.needs_w_quant_for_opts:
             for w in x_wgts:
                 if update_state_dict:
@@ -547,7 +688,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         orig_eval_inputs: TensorsCache | None = None,
         **kwargs,
     ) -> _CANDIDATE:
-        """Calibrate the quantization parameters.
+        """
+        进行量化参数的校准，基于搜索策略优化量化误差。
+        Calibrate the quantization parameters.
 
         Args:
             x_wgts (`list[nn.Parameter]` or `None`, *optional*, defaults to `None`):
@@ -586,6 +729,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             `_CANDIDATE`:
                 The best candidate.
         """
+        # 日志记录。记录当前量化器的配置
         tools.logging.Formatter.indent_inc()
         if self.w_quantizer is not None and self.w_quantizer.is_enabled():
             self.logger.debug(f"+ w: {self.w_quantizer.config.quant_dtype}")
@@ -613,7 +757,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             orig_x_acts,
             orig_y_acts,
             orig_eval_inputs,
-        ) = self._parse_args(
+        ) = self._parse_args(           # 调用 _parse_args 方法，解析和验证输入参数
             x_wgts,
             y_wgts,
             x_acts,
@@ -630,6 +774,8 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         )
         eval_kwargs = eval_kwargs or {}
         self.logger.debug(f"+ finished parsing calibration arguments, ram usage: {psutil.virtual_memory().percent}")
+
+        # 调用 reset 方法重置校准状态
         self.reset(
             x_wgts=x_wgts,
             y_wgts=y_wgts,
@@ -650,6 +796,8 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         self.logger.debug(f"+ finished reseting calibrator, ram usage: {psutil.virtual_memory().percent}")
         gc.collect()
         torch.cuda.empty_cache()
+        
+        # 根据 tensor_type 调用对应的校准方法
         if self.tensor_type == TensorType.Weights:
             result = self._calibrate_wgts(
                 x_wgts, eval_inputs, eval_module, x_mods, orig_x_wgts, orig_eval_inputs, eval_kwargs, **kwargs
@@ -686,7 +834,11 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         eval_kwargs: dict[str, tp.Any],
         **kwargs,
     ) -> tp.Any:
+        """
+        权重量化校准。
+        """
         # region Step 1: Calculate the baseline
+        # 计算基线输出。根据 objective 计算原始权重和输入的输出，为后续计算误差做准备。
         if self.objective == SearchBasedCalibObjective.TensorError:
             if orig_wgts is None:
                 orig_wgts = [(None, w.detach().data) for w in wgts]
@@ -769,6 +921,12 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         torch.cuda.empty_cache()
         self.logger.debug(f"+ finished calculating the original outputs, ram usage: {psutil.virtual_memory().percent}")
         # endregion
+        
+        # 迭代搜索
+        # 在未完成校准的情况下，循环执行：
+        # 1.请求候选者：调用 ask 方法获取下一个候选量化参数
+        # 2.计算误差：根据校准目标和粒度计算当前候选者的量化误差
+        # 3.反馈误差：调用 tell 方法传递误差信息，更新最佳候选者
         while not self.is_done():
             self.ask()
             e: list[torch.Tensor] = []
@@ -834,7 +992,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
                 raise ValueError(f"Unknown objective {self.objective}")
             # endregion
             self.tell(e)
-        return self.get_best()
+        return self.get_best()          # 返回最佳候选者
 
     def _calibrate_ipts(  # noqa: C901
         self,
@@ -847,6 +1005,10 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         eval_kwargs: dict[str, tp.Any],
         **kwargs,
     ) -> tp.Any:
+        """
+        输入量化校准。
+        """
+        # 验证输入与原始输入的一致性
         if orig_ipts is None:
             orig_ipts = ipts
         assert ipts.num_tensors == orig_ipts.num_tensors
@@ -856,6 +1018,7 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
             for x, orig_x in zip(ipt.data, orig_ipt.data, strict=True)
         )
         # region Step 1: Calculate the outputs
+        # 计算输出基线：根据 objective 计算原始输入和权重的输出，为后续计算误差做准备
         if self.objective == SearchBasedCalibObjective.TensorError:
             assert all(x.shape == ipt.data[0].shape for ipt in ipts for x in ipt.data)
             orig_opts = None
@@ -921,6 +1084,9 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         gc.collect()
         torch.cuda.empty_cache()
         # endregion
+        
+        # 迭代搜索
+        # 类似权重量化校准，迭代请求候选者并计算误差，最终返回最佳候选者
         while not self.is_done():
             self.ask()
             e: list[torch.Tensor] = []
@@ -1007,6 +1173,10 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         eval_kwargs: dict[str, tp.Any],
         **kwargs,
     ) -> tp.Any:
+        """
+        输出量化校准。
+        """
+        # 计算输出基线：根据 objective 计算原始输入通过评估模块的输出，用于后续计算误差
         # region Step 1: Calculate the outputs
         if self.objective == SearchBasedCalibObjective.OutputsError:
             assert eval_inputs is not None, "eval_inputs should not be None when objective is OutputsError"
@@ -1045,6 +1215,8 @@ class SearchBasedCalibrator(ABC, tp.Generic[_CONFIG, _CANDIDATE]):
         gc.collect()
         torch.cuda.empty_cache()
         # endregion
+        
+        # 迭代搜索：循环请求候选者，并计算量化后的输出误差，最终返回最佳候选者
         while not self.is_done():
             self.ask()
             e: list[torch.Tensor] = []

@@ -13,7 +13,12 @@ __all__ = ["QuantRtnKernel", "rtn_quantize"]
 
 
 class QuantRtnKernel(BaseQuantKernel):
-    """Round-to-nearest (RTN) Quantization kernel."""
+    """
+    实现了最近邻（Round-to-Nearest, RTN）量化内核，继承自 BaseQuantKernel。
+    该类主要负责将输入张量按照最近邻策略进行量化。
+    其核心方法是 quantize，该方法调用了 rtn_quantize 函数，执行具体的量化逻辑。
+    Round-to-nearest (RTN) Quantization kernel.
+    """
 
     def quantize(
         self,
@@ -28,7 +33,9 @@ class QuantRtnKernel(BaseQuantKernel):
         round_delta: torch.Tensor | None = None,
         **kwargs,
     ) -> torch.Tensor:
-        """Quantize the tensor.
+        """
+        调用 rtn_quantize 函数，将输入张量按照 RTN 策略进行量化。
+        Quantize the tensor.
 
         Args:
             tensor (`torch.Tensor`):
@@ -53,6 +60,7 @@ class QuantRtnKernel(BaseQuantKernel):
             `torch.Tensor`:
                 The quantized tensor in the shape of ``view_shape``.
         """
+        # 调用 rtn_quantize 函数，执行具体的量化逻辑
         return rtn_quantize(
             tensor,
             view_shape=view_shape,
@@ -76,7 +84,9 @@ def rtn_quantize(
     quant_range: QuantRange | None = None,
     round_delta: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Quantize the tensor using the RTN quantization kernel.
+    """
+    实现了最近邻（RTN）量化算法，用于将输入张量按照指定的量化策略进行量化处理。
+    Quantize the tensor using the RTN quantization kernel.
 
     Args:
         tensor (`torch.Tensor`):
@@ -100,13 +110,18 @@ def rtn_quantize(
         `torch.Tensor`:
             The quantized tensor in the shape of ``view_shape``.
     """
+    # 重塑张量
     qtensor = tensor.view(view_shape)
+    # 重塑舍入偏移量张量，以便与张量形状匹配
     round_delta = round_delta.view(view_shape) if round_delta is not None else None
+    # 应用零点偏移和缩放
     if zero_domain == ZeroPointDomain.PostScale:
         qtensor = qtensor.add_(zero)
     qtensor = qtensor.div(scale)
     if zero_domain == ZeroPointDomain.PreScale:
         qtensor = qtensor.add_(zero)
+        
+    # 调用 simple_quantize 函数，对张量进行量化
     qtensor = simple_quantize(
         qtensor,
         quant_dtype=quant_dtype,
